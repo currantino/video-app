@@ -1,4 +1,4 @@
-package com.currantino
+package com.currantino.controller
 
 import com.currantino.service.VideoService
 import io.ktor.server.application.*
@@ -23,6 +23,15 @@ fun Application.videoRouting() {
             get("/available") {
                 val videos = videoService.getAvailableVideos()
                 call.respond(mapOf("videos" to videos))
+            }
+
+            get("/presigned") {
+                val videoName = call.request.queryParameters["name"]
+                if (videoName.isNullOrBlank()) {
+                    throw BadRequestException("Invalid video name.")
+                }
+                val presignedVideo = videoService.getPresignedVideo(videoName)
+                call.respond(presignedVideo)
             }
         }
     }

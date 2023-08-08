@@ -6,11 +6,13 @@ import aws.sdk.kotlin.services.s3.model.CompletedMultipartUpload
 import aws.sdk.kotlin.services.s3.model.CompletedPart
 import aws.smithy.kotlin.runtime.client.LogMode
 import aws.smithy.kotlin.runtime.content.ByteStream
-import aws.smithy.kotlin.runtime.net.Host
-import aws.smithy.kotlin.runtime.net.Scheme
 import aws.smithy.kotlin.runtime.net.Url
 import io.ktor.http.content.*
+import io.minio.GetPresignedObjectUrlArgs
+import io.minio.MinioClient
+import io.minio.http.Method
 import kotlinx.coroutines.runBlocking
+import java.util.concurrent.TimeUnit
 import kotlin.math.min
 
 private const val VIDEOS_BUCKET_NAME = "videos"
@@ -29,74 +31,59 @@ class VideoRepository {
         createBucketIfNotExists(VIDEOS_BUCKET_NAME)
     }
 
-    private suspend fun createBucketIfNotExists(bucketName: String) {
-        val s3 = getS3Client()
+    private suspend fun createBucketIfNotExists(bucketName: String) = getS3Client().use { s3 ->
         val bucketNames = s3.listBuckets().buckets?.map { it.name } ?: emptyList()
         if (VIDEOS_BUCKET_NAME !in bucketNames) {
             s3.createBucket {
                 bucket = bucketName
             }
         }
-        s3.close()
     }
 
     suspend fun uploadFile(
         partData: PartData.FileItem,
         totalSize: Long
     ): String {
-        val s3 = getS3Client()
-        val createMultipartUploadResponse = s3.createMultipartUpload {
-            bucket = VIDEOS_BUCKET_NAME
-            key = partData.originalFileName
-            contentType = partData.contentType.toString()
-        }
-        var partCounter = 1
-        val myParts: MutableList<CompletedPart> = mutableListOf()
-        val inputStream = partData.streamProvider()
-        val bufferSize = getBufferSize(totalSize)
-        var bytesRead = 0L
-        while (totalSize > bytesRead || inputStream.available() > 0) {
-            val partSize = min(totalSize - bytesRead, bufferSize.toLong()).toInt()
-            val partByteStream = ByteStream.fromBytes(inputStream.readNBytes(partSize))
-            if (partByteStream.contentLength == 0L) {
-                break;
+        getS3Client().use { s3 ->
+            val createMultipartUploadResponse = s3.createMultipartUpload {
+                bucket = VIDEOS_BUCKET_NAME
+                key = partData.originalFileName
+                contentType = partData.contentType.toString()
             }
-            bytesRead += partByteStream.contentLength!!
-            val uploadPartResponse = s3.uploadPart {
-                body = partByteStream
-                partNumber = partCounter++
+            var partCounter = 1
+            val myParts: MutableList<CompletedPart> = mutableListOf()
+            partData.streamProvider().use { inputStream ->
+                val bufferSize = getBufferSize(totalSize)
+                var bytesRead = 0L
+                while (totalSize > bytesRead || inputStream.available() > 0) {
+                    val partSize = min(totalSize - bytesRead, bufferSize.toLong()).toInt()
+                    val partByteStream = ByteStream.fromBytes(inputStream.readNBytes(partSize))
+                    if (partByteStream.contentLength == 0L) {
+                        break
+                    }
+                    bytesRead += partByteStream.contentLength!!
+                    val uploadPartResponse = s3.uploadPart {
+                        body = partByteStream
+                        partNumber = partCounter++
+                        bucket = createMultipartUploadResponse.bucket
+                        key = createMultipartUploadResponse.key
+                        uploadId = createMultipartUploadResponse.uploadId
+                    }
+                    myParts.add(CompletedPart {
+                        eTag = uploadPartResponse.eTag
+                        partNumber = partCounter - 1
+                    })
+                }
+            }
+            val completeMultiPartResponse = s3.completeMultipartUpload {
                 bucket = createMultipartUploadResponse.bucket
                 key = createMultipartUploadResponse.key
                 uploadId = createMultipartUploadResponse.uploadId
+                multipartUpload = CompletedMultipartUpload {
+                    parts = myParts
+                }
             }
-            myParts.add(CompletedPart {
-                eTag = uploadPartResponse.eTag
-                partNumber = partCounter - 1
-            })
-        }
-        inputStream.close()
-        val completeMultiPartResponse = s3.completeMultipartUpload {
-            bucket = createMultipartUploadResponse.bucket
-            key = createMultipartUploadResponse.key
-            uploadId = createMultipartUploadResponse.uploadId
-            multipartUpload = CompletedMultipartUpload {
-                parts = myParts
-            }
-        }
-        return "Video uploaded successfully to ${completeMultiPartResponse.bucket}/${completeMultiPartResponse.key}"
-    }
-
-    fun getS3Client(): S3Client {
-        return S3Client {
-            region = "us-west-rack-2"
-            credentialsProvider = StaticCredentialsProvider {
-                accessKeyId = System.getenv("MINIO_ROOT_USER") ?: "admin"
-                secretAccessKey = System.getenv("MINIO_ROOT_PASSWORD") ?: "password"
-            }
-            endpointUrl =
-                Url(scheme = Scheme.HTTP, host = Host.parse("localhost"), port = 9000)
-            logMode = LogMode.LogRequest + LogMode.LogResponse
-            forcePathStyle = true
+            return@uploadFile "Video uploaded successfully to ${completeMultiPartResponse.bucket}/${completeMultiPartResponse.key}"
         }
     }
 
@@ -104,14 +91,61 @@ class VideoRepository {
         if (totalSize > LARGE_UPLOAD_FILE_SIZE) INCREASED_UPLOAD_BUFFER_SIZE else DEFAULT_UPLOAD_BUFFER_SIZE
 
     suspend fun getAvailableVideos(): List<Map<String, String>> {
-        val s3 = getS3Client()
-        val videos = s3.listObjectsV2 {
-            bucket = VIDEOS_BUCKET_NAME
-        }.contents?.map {
-            mapOf(
-                "name" to it.key!!
-            )
-        } ?: emptyList()
-        return videos
+        getS3Client().use { s3 ->
+            val videos = s3.listObjectsV2 {
+                bucket = VIDEOS_BUCKET_NAME
+            }.contents?.map {
+                mapOf(
+                    "name" to it.key!!
+                )
+            } ?: emptyList()
+            return videos
+        }
+
     }
+
+    private fun getS3Client(): S3Client {
+        return S3Client {
+            region = System.getenv("AWS_REGION") ?: "eu-central-1"
+            credentialsProvider = StaticCredentialsProvider {
+                accessKeyId = System.getenv("AWS_ACCESS_KEY_ID") ?: "admin"
+                secretAccessKey = System.getenv("AWS_SECRET_ACCESS_KEY") ?: "password"
+            }
+            endpointUrl = Url.parse(System.getenv("S3_SERVER_URL") ?: "http://localhost:9000")
+            logMode = LogMode.LogRequest + LogMode.LogResponse
+            forcePathStyle = true
+        }
+    }
+
+    suspend fun getPresignedVideo(videoName: String): Map<String, String> {
+        val minio = getMinio()
+        val contentType = getS3Client().use { s3 ->
+            s3.headObject {
+                bucket = VIDEOS_BUCKET_NAME
+                key = videoName
+            }.contentType!!
+        }
+        val url = minio.getPresignedObjectUrl(
+            GetPresignedObjectUrlArgs.builder()
+                .bucket(VIDEOS_BUCKET_NAME)
+                .`object`(videoName)
+                .expiry(1, TimeUnit.HOURS)
+                .method(Method.GET)
+                .build()
+        )
+        return mapOf(
+            "url" to url,
+            "contentType" to contentType
+        )
+    }
+
+    private fun getMinio(): MinioClient = MinioClient.builder()
+        .region(System.getenv("AWS_REGION") ?: "eu-central-1")
+        .credentials(
+            System.getenv("AWS_ACCESS_KEY_ID") ?: "admin",
+            System.getenv("AWS_SECRET_ACCESS_KEY") ?: "password"
+        )
+        .endpoint(System.getenv("S3_SERVER_URL") ?: "http://localhost:9000")
+        .build()
+
 }

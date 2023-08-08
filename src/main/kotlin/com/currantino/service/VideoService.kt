@@ -24,4 +24,7 @@ class VideoService(private val videoRepository: VideoRepository) {
     }
 
     suspend fun getAvailableVideos(): List<Map<String, String>> = videoRepository.getAvailableVideos()
+
+    suspend fun getPresignedVideo(videoName: String): Map<String, String> = videoRepository.getPresignedVideo(videoName)
+
 }

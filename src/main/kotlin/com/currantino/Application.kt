@@ -1,8 +1,9 @@
 package com.currantino
 
+import com.currantino.controller.videoRouting
 import com.currantino.koin.appModule
-import com.currantino.plugins.configureRouting
 import com.currantino.plugins.configureSerialization
+import com.currantino.plugins.staticResourcesRouting
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -20,7 +21,7 @@ fun main() {
 
 fun Application.module() {
     configureSerialization()
-    configureRouting()
+    staticResourcesRouting()
     videoRouting()
     install(Koin) {
         slf4jLogger()
