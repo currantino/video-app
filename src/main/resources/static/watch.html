@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Watch</title>
+    <link href="https://vjs.zencdn.net/7.15.4/video-js.min.css" rel="stylesheet">
+    <script src="https://vjs.zencdn.net/7.15.4/video.min.js"></script>
+    <script src="videojs-remember.js"></script>
+</head>
+<body>
+<div>
+    <h3>
+        Here are the available videos:
+    </h3>
+    <ul id="videos"></ul>
+    <label for="video-name">Enter Video Name:</label>
+    <input type="text" id="video-name" placeholder="Enter video name">
+    <button onclick="loadVideo()">Load Video</button>
+</div>
+
+<div>
+    <video id="video-player" class="video-js vjs-default-skin" controls preload="auto" width="1080" height="607.5">
+        <source src="" type="video/mp4">
+    </video>
+</div>
+
+<script>
+    function fetchVideo(videoName) {
+        return fetch(`/videos/presignedUrl?name=${encodeURIComponent(videoName)}`)
+            .then(response => response.json())
+            .catch(error => {
+                console.error('Error fetching video:', error);
+            });
+    }
+
+    async function loadVideo() {
+        const videoName = document.getElementById('video-name').value.trim()
+        if (videoName === '') {
+            alert('Please enter a valid video name.');
+            return;
+        }
+
+        const video = await fetchVideo(videoName);
+
+        if (!video) {
+            alert('Video not found or URL not available.');
+            return;
+        }
+        const player = videojs('video-player')
+        player.src([{
+            src: video.url,
+            type: video.contentType
+        }])
+        player.play()
+    }
+
+    function fetchAvailableVideos() {
+        return fetch('/videos/available')
+            .then(response => response.json())
+            .then(response => response.videos)
+            .catch(error => {
+                console.error('Error fetching values:', error);
+            });
+    }
+
+    async function fillAvailableVideosList() {
+        const valueList = document.getElementById('videos');
+        valueList.innerHTML = '';
+
+        const availableVideos = await fetchAvailableVideos();
+
+        if (!availableVideos || availableVideos.length === 0) {
+            console.error('No values found or an error occurred while fetching values.');
+            return;
+        }
+        availableVideos.forEach(video => {
+            const listItem = document.createElement('li');
+            listItem.textContent = video.name;
+            valueList.appendChild(listItem);
+        });
+    }
+
+    fillAvailableVideosList();
+</script>
+</body>
+</html>
