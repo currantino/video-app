@@ -4,6 +4,7 @@ val logback_version: String by project
 val koin_ktor_version: String by project
 val aws_sdk_version: String by project
 val slf4j_version: String by project
+val minio_version: String by project
 
 plugins {
     kotlin("jvm") version "1.9.0"
@@ -28,7 +29,6 @@ repositories {
 dependencies {
     implementation("io.ktor:ktor-server-core-jvm")
     implementation("io.ktor:ktor-server-host-common-jvm")
-    implementation("io.ktor:ktor-server-status-pages-jvm")
     implementation("io.ktor:ktor-server-content-negotiation-jvm")
     implementation("io.ktor:ktor-serialization-kotlinx-json-jvm")
     implementation("io.ktor:ktor-server-netty-jvm")
@@ -40,4 +40,5 @@ dependencies {
     implementation("io.insert-koin:koin-logger-slf4j:$koin_ktor_version")
     implementation("org.slf4j:slf4j-simple:$slf4j_version")
     implementation("io.ktor:ktor-server-call-logging:$ktor_version")
+    implementation("io.minio:minio:$minio_version")
 }
