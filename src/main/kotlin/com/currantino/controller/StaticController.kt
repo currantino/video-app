@@ -1,4 +1,4 @@
-package com.currantino.plugins
+package com.currantino.controller
 
 import io.ktor.server.application.*
 import io.ktor.server.http.content.*
