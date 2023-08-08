@@ -11,12 +11,19 @@ import org.koin.ktor.ext.inject
 fun Application.videoRouting() {
     val videoService by inject<VideoService>()
     routing {
-        post("/upload") {
-            val data = call.receiveMultipart()
-            val contentLength =
-                call.request.contentLength() ?: throw BadRequestException("Provide content-length header.")
-            val response = videoService.uploadVideo(data, contentLength)
-            call.respond(response)
+        route("/videos") {
+            post("/upload") {
+                val data = call.receiveMultipart()
+                val contentLength =
+                    call.request.contentLength() ?: throw BadRequestException("Provide content-length header.")
+                val response = videoService.uploadVideo(data, contentLength)
+                call.respond(response)
+            }
+
+            get("/available") {
+                val videos = videoService.getAvailableVideos()
+                call.respond(mapOf("videos" to videos))
+            }
         }
     }
 }
