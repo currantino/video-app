@@ -102,4 +102,16 @@ class VideoRepository {
 
     private fun getBufferSize(totalSize: Long) =
         if (totalSize > LARGE_UPLOAD_FILE_SIZE) INCREASED_UPLOAD_BUFFER_SIZE else DEFAULT_UPLOAD_BUFFER_SIZE
+
+    suspend fun getAvailableVideos(): List<Map<String, String>> {
+        val s3 = getS3Client()
+        val videos = s3.listObjectsV2 {
+            bucket = VIDEOS_BUCKET_NAME
+        }.contents?.map {
+            mapOf(
+                "name" to it.key!!
+            )
+        } ?: emptyList()
+        return videos
+    }
 }

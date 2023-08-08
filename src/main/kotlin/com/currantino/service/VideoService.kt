@@ -22,4 +22,6 @@ class VideoService(private val videoRepository: VideoRepository) {
         }
         return results.joinToString(separator = "\n")
     }
+
+    suspend fun getAvailableVideos(): List<Map<String, String>> = videoRepository.getAvailableVideos()
 }

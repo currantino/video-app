@@ -39,5 +39,5 @@ dependencies {
     implementation("io.insert-koin:koin-ktor:$koin_ktor_version")
     implementation("io.insert-koin:koin-logger-slf4j:$koin_ktor_version")
     implementation("org.slf4j:slf4j-simple:$slf4j_version")
-
+    implementation("io.ktor:ktor-server-call-logging:$ktor_version")
 }
