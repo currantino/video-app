@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plyr Video Player Example</title>
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.6.8/plyr.css">
+</head>
+<body>
+<div>
+    <label for="video-name">Enter Video Name:</label>
+    <input type="text" id="video-name" placeholder="Enter video name">
+    <button onclick="loadVideo()">Load Video</button>
+</div>
+
+<video class="plyr__video-embed" id="player">
+</video>
+
+<script src="https://cdn.plyr.io/3.6.8/plyr.js"></script>
+
+<script>
+    async function loadVideo() {
+        const videoNameInput = document.getElementById("video-name")
+        const videoName = videoNameInput.value.trim();
+        if (!videoName || videoName === "") {
+            alert("Invalid video name!")
+            return
+        }
+        const videoUrl = `http://localhost:8080/videos/stream?name=${videoName}`;
+        let player = new Plyr("player");
+        player.source = {
+            type: 'video',
+            sources: [{
+                src: videoUrl
+            }],
+        };
+        player.play()
+    }
+</script>
+</body>
+</html>

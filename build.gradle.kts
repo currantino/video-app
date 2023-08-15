@@ -41,4 +41,7 @@ dependencies {
     implementation("org.slf4j:slf4j-simple:$slf4j_version")
     implementation("io.ktor:ktor-server-call-logging:$ktor_version")
     implementation("io.minio:minio:$minio_version")
+
+    implementation("io.ktor:ktor-server-partial-content")
+    implementation("io.ktor:ktor-server-auto-head-response")
 }
