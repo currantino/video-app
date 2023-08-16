@@ -1,80 +1,116 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
     <title>Watch</title>
-    <link href="https://vjs.zencdn.net/7.15.4/video-js.min.css" rel="stylesheet">
-    <script src="https://vjs.zencdn.net/7.15.4/video.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.6.8/plyr.css">
 </head>
 <body>
+<h3>Here are the available videos:</h3>
+<ul id="availableVideos"></ul>
 <div>
-    <h3>
-        Here are the available videos:
-    </h3>
-    <ul id="videos"></ul>
     <label for="video-name">Enter Video Name:</label>
     <input type="text" id="video-name" placeholder="Enter video name">
-    <button onclick="loadVideo()">Load Video</button>
+    <button type="button" class="btn btn-success m-2" onclick="loadVideo()">Load Video</button>
 </div>
+<video controls id="player">
+    Your browser doesn't support playing videos :(
+</video>
 
-<div>
-    <video id="video-player" class="video-js vjs-default-skin" controls preload="auto" width="1080" height="607.5">
-        <source src="" type="video/mp4">
-    </video>
-</div>
+<script src="https://cdn.plyr.io/3.6.8/plyr.js"></script>
 
 <script>
-    function fetchVideo(videoName) {
-        return fetch(`/videos/presigned?name=${encodeURIComponent(videoName)}`)
-            .then(response => response.json())
-            .catch(error => {
-                console.error('Error fetching video:', error);
-            });
+    const player = new Plyr(document.getElementById('player'));
+    document.addEventListener('DOMContentLoaded', () => {
+            const lastVideoPlayed = localStorage.getItem('lastVideoPlayed')
+
+            if (!lastVideoPlayed) {
+                return
+            }
+
+            initPlayer(lastVideoPlayed)
+
+        }, false
+    )
+
+    function getVideoUrl(videoName) {
+        return `/videos/stream?name=${videoName}`;
+    }
+
+    function initPlayer(videoName) {
+        player.currentTime = 0
+        player.source = {
+            type: 'video',
+            sources: [{
+                src: getVideoUrl(videoName)
+            }],
+        }
+
+        player.on('timeupdate', () => {
+            if (player.currentTime > 0) {
+                localStorage.setItem('lastPlayedTime', player.currentTime)
+            }
+        })
+
+        player.on('loadedmetadata', () => {
+            const lastPlayedTime = localStorage.getItem('lastPlayedTime')
+            const lastVideoPlayed = localStorage.getItem('lastVideoPlayed')
+            if (lastPlayedTime && lastVideoPlayed === videoName) {
+                player.currentTime = parseInt(lastPlayedTime)
+            } else {
+                player.currentTime = 0
+            }
+            localStorage.setItem('lastVideoPlayed', videoName)
+        })
+
     }
 
     async function loadVideo() {
-        const videoName = document.getElementById('video-name').value.trim()
-        if (videoName === '') {
-            alert('Please enter a valid video name.');
-            return;
+        const videoNameInput = document.getElementById("video-name")
+        const videoName = videoNameInput.value.trim()
+        if (!videoName || videoName === "") {
+            alert("Invalid video name!")
+            return
         }
 
-        const video = await fetchVideo(videoName);
-
-        if (!video) {
-            alert('Video not found or URL not available.');
-            return;
+        const availableVideos = await fetchAvailableVideos()
+            .then(videos => videos.map(
+                video => video.name
+            ))
+            .catch(e => console.error(e))
+        if (!availableVideos.includes(videoName)) {
+            alert(`${videoName} is not available!`)
+            return
         }
-        const player = videojs('video-player')
-        player.src([{
-            src: video.url,
-            type: video.contentType
-        }])
-        player.play()
+
+        initPlayer(videoName);
+
     }
 
-    function fetchAvailableVideos() {
-        return fetch('/videos/available')
+    async function fetchAvailableVideos() {
+        return fetch("/videos/available")
             .then(response => response.json())
             .then(response => response.videos)
-            .catch(error => {
-                console.error('Error fetching values:', error);
-            });
+            .catch(e => console.error(e))
     }
 
     async function fillAvailableVideosList() {
-        const valueList = document.getElementById('videos');
-        valueList.innerHTML = '';
+        const videoList = document.getElementById('availableVideos');
+        videoList.innerHTML = '';
 
         const availableVideos = await fetchAvailableVideos();
 
         if (!availableVideos || availableVideos.length === 0) {
-            console.error('No values found or an error occurred while fetching values.');
+            alert('No videos found or an error occurred while fetching videos.');
             return;
         }
         availableVideos.forEach(video => {
             const listItem = document.createElement('li');
             listItem.textContent = video.name;
-            valueList.appendChild(listItem);
+            videoList.appendChild(listItem);
         });
     }
 

@@ -1,6 +1,8 @@
 package com.currantino.service
 
 import com.currantino.repository.VideoRepository
+import com.currantino.stream.StreamingResponse
+import io.ktor.http.*
 import io.ktor.http.content.*
 
 class VideoService(private val videoRepository: VideoRepository) {
@@ -13,7 +15,7 @@ class VideoService(private val videoRepository: VideoRepository) {
         data.forEachPart { partData ->
             when (partData) {
                 is PartData.FileItem -> {
-                    val uploadResult = videoRepository.uploadFile(partData, totalSize)
+                    val uploadResult = videoRepository.uploadFilePart(partData, totalSize)
                     results.add(uploadResult)
                 }
 
@@ -26,5 +28,10 @@ class VideoService(private val videoRepository: VideoRepository) {
     suspend fun getAvailableVideos(): List<Map<String, String>> = videoRepository.getAvailableVideos()
 
     suspend fun getPresignedVideo(videoName: String): Map<String, String> = videoRepository.getPresignedVideo(videoName)
+
+    suspend fun stream(ranges: RangesSpecifier, videoName: String): StreamingResponse =
+        videoRepository.getVideoPart(videoName, ranges)
+
+    suspend fun getVideoSize(videoName: String) = videoRepository.getVideoSize(videoName)
 
 }
