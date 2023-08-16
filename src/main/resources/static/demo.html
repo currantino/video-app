@@ -7,18 +7,54 @@
     <link rel="stylesheet" href="https://cdn.plyr.io/3.6.8/plyr.css">
 </head>
 <body>
+<ul id="availableVideos"></ul>
 <div>
     <label for="video-name">Enter Video Name:</label>
     <input type="text" id="video-name" placeholder="Enter video name">
     <button onclick="loadVideo()">Load Video</button>
 </div>
 
-<video class="plyr__video-embed" id="player">
+<video controls id="player">
+    Your browser doesn't support playing videos :(
 </video>
 
 <script src="https://cdn.plyr.io/3.6.8/plyr.js"></script>
 
 <script>
+
+    document.addEventListener('DOMContentLoaded', () => {
+            const lastVideoPlayed = localStorage.getItem('lastVideoPlayed')
+            if (lastVideoPlayed) {
+                const player = new Plyr(document.getElementById('player'));
+                player.source = {
+                    type: 'video',
+                    sources: [{
+                        src: getVideoUrl(lastVideoPlayed)
+                    }]
+                };
+
+                player.on('loadedmetadata', () => {
+                    const lastPlayedTime = localStorage.getItem('lastPlayedTime')
+                    if (lastPlayedTime) {
+                        player.currentTime = parseInt(lastPlayedTime)
+                    }
+                    player.play()
+                })
+
+                player.on('timeupdate', () => {
+                    if (player.currentTime !== 0) {
+                        localStorage.setItem('lastPlayedTime', player.currentTime)
+                    }
+                })
+
+            }
+        }, false
+    )
+
+    function getVideoUrl(videoName) {
+        return `/videos/stream?name=${videoName}`;
+    }
+
     async function loadVideo() {
         const videoNameInput = document.getElementById("video-name")
         const videoName = videoNameInput.value.trim();
@@ -26,16 +62,47 @@
             alert("Invalid video name!")
             return
         }
-        const videoUrl = `http://localhost:8080/videos/stream?name=${videoName}`;
-        let player = new Plyr("player");
+        localStorage.setItem('lastVideoPlayed', videoName)
+
+
+        const player = new Plyr(document.getElementById('player'));
         player.source = {
             type: 'video',
             sources: [{
-                src: videoUrl
+                src: getVideoUrl(videoName)
             }],
         };
+        player.on('timeupdate', () => {
+            localStorage.setItem('lastPlayedTime', player.currentTime)
+        })
         player.play()
     }
+
+    async function fetchAvailableVideos() {
+        return fetch("/videos/available")
+            .then(response => response.json())
+            .then(response => response.videos)
+            .catch(e => console.log(e))
+    }
+
+    async function fillAvailableVideosList() {
+        const videoList = document.getElementById('availableVideos');
+        videoList.innerHTML = '';
+
+        const availableVideos = await fetchAvailableVideos();
+
+        if (!availableVideos || availableVideos.length === 0) {
+            console.error('No videos found or an error occurred while fetching videos.');
+            return;
+        }
+        availableVideos.forEach(video => {
+            const listItem = document.createElement('li');
+            listItem.textContent = video.name;
+            videoList.appendChild(listItem);
+        });
+    }
+
+    fillAvailableVideosList();
 </script>
 </body>
 </html>
