@@ -9,8 +9,6 @@ import io.ktor.server.plugins.partialcontent.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import net.bramp.ffmpeg.FFmpeg
-import net.bramp.ffmpeg.builder.FFmpegBuilder
 import org.koin.ktor.ext.inject
 
 fun Application.videoRouting() {
