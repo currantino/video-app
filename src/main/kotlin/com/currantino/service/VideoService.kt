@@ -15,7 +15,7 @@ class VideoService(private val videoRepository: VideoRepository) {
         data.forEachPart { partData ->
             when (partData) {
                 is PartData.FileItem -> {
-                    val uploadResult = videoRepository.uploadFile(partData, totalSize)
+                    val uploadResult = videoRepository.uploadFilePart(partData, totalSize)
                     results.add(uploadResult)
                 }
 

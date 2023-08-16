@@ -36,7 +36,7 @@ class VideoRepository {
     }
 
 
-    suspend fun uploadFile(
+    suspend fun uploadFilePart(
         partData: PartData.FileItem,
         totalSize: Long
     ): String {
@@ -79,7 +79,7 @@ class VideoRepository {
                     parts = myParts
                 }
             }
-            return@uploadFile "Video uploaded successfully to ${completeMultiPartResponse.bucket}/${completeMultiPartResponse.key}"
+            return@uploadFilePart "Video uploaded successfully to ${completeMultiPartResponse.bucket}/${completeMultiPartResponse.key}"
         }
     }
 
@@ -154,7 +154,7 @@ class VideoRepository {
     suspend fun getVideoPart(videoName: String, ranges: RangesSpecifier): StreamingResponse {
         val totalSize = getVideoSize(videoName)
         val requestedRange: ContentRange = ranges.ranges.first()
-        val transformedRange = cutRangeToEightMb(requestedRange, totalSize)
+        val transformedRange = cutRange(requestedRange, totalSize)
         return getS3Client().use { s3 ->
             s3.getObject(
                 GetObjectRequest {
@@ -172,7 +172,7 @@ class VideoRepository {
         }
     }
 
-    private fun cutRangeToEightMb(requestedRange: ContentRange, totalSize: Long) = when (requestedRange) {
+    private fun cutRange(requestedRange: ContentRange, totalSize: Long) = when (requestedRange) {
         is ContentRange.Bounded -> ContentRange.Bounded(
             from = requestedRange.from,
             to = min(requestedRange.to, requestedRange.from + DEFAULT_STREAM_BUFFER_SIZE)
